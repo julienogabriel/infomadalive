@@ -1,0 +1,13 @@
+{
+  "name": "info-mada-live-whatsapp",
+  "version": "1.0.0",
+  "description": "Bot WhatsApp - Infos utiles & Bons plans Madagascar",
+  "main": "bot-whatsapp.js",
+  "scripts": {
+    "start": "node bot-whatsapp.js"
+  },
+  "dependencies": {
+    "whatsapp-web.js": "^1.26.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

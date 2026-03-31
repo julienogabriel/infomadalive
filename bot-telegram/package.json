@@ -1,0 +1,13 @@
+{
+  "name": "info-mada-live-bot",
+  "version": "1.0.0",
+  "description": "Bot Telegram - Infos utiles & Bons plans Madagascar",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "node --watch bot.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}
