@@ -1,31 +1,41 @@
-# Héberger le site GRATUITEMENT sur GitHub Pages
+# Héberger le site GRATUITEMENT
 
-## Étape 1 : Créer un compte GitHub
-1. Va sur github.com → Sign up
-2. Crée un compte (gratuit)
+## Option 1 : Vercel (recommandé)
 
-## Étape 2 : Créer un repo
-1. Clique "New repository"
-2. Nom : `infomadalive`
-3. Public
-4. Crée le repo
+Le site se déploie automatiquement avec le bot sur Vercel.
+Si tu veux un site séparé :
 
-## Étape 3 : Upload les fichiers
-1. Clique "Upload files"
-2. Glisse le fichier `index.html`
-3. Commit
+1. Va sur **vercel.com** (tu as déjà un compte)
+2. **"Add New Project"** → importe le même repo
+3. **Root Directory** → `site-web`
+4. **Framework Preset** → Other
+5. Deploy → ton site est en ligne !
 
-## Étape 4 : Activer GitHub Pages
-1. Settings → Pages
-2. Source : "Deploy from a branch"
-3. Branch : main → / (root)
-4. Save
+URL : `https://infomadalive.vercel.app`
 
-## Étape 5 : Ton site est en ligne !
-URL : `https://ton-username.github.io/infomadalive`
+## Option 2 : GitHub Pages (gratuit aussi)
 
-## Bonus : Nom de domaine personnalisé
-Plus tard, tu peux acheter un domaine :
+1. Va sur ton repo GitHub : github.com/julienogabriel/infomadalive
+2. Settings → **Pages**
+3. Source : **Deploy from a branch**
+4. Branch : main → / (root)
+5. Save
+
+URL : `https://julienogabriel.github.io/infomadalive`
+
+Note : GitHub Pages sert depuis la racine. Tu peux aussi créer un repo séparé `julienogabriel.github.io` et y mettre le `index.html`.
+
+## Personnaliser le site
+
+Ouvre `site-web/index.html` et remplace :
+- `261XXXXXXXXX` → ton vrai numéro WhatsApp
+- `InfoMadaLiveBot` → le vrai username de ton bot
+- `infomadalive@gmail.com` → ton vrai email
+
+## Nom de domaine personnalisé (plus tard)
+
+Tu peux acheter un domaine :
 - `infomadalive.mg` (domaine malgache)
 - `infomadalive.com`
 Coût : environ 10-15$/an
+Connecte-le dans Vercel → Settings → Domains

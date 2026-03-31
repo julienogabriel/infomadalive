@@ -4,7 +4,7 @@
 
 1. [Vue d'ensemble du projet](#1-vue-densemble)
 2. [Créer le bot Telegram](#2-créer-le-bot-telegram)
-3. [Déployer sur Koyeb (gratuit)](#3-déployer-sur-koyeb)
+3. [Déployer sur Vercel (100% gratuit)](#3-déployer-sur-vercel)
 4. [Créer la page Facebook](#4-créer-la-page-facebook)
 5. [Lancer le bot WhatsApp](#5-lancer-le-bot-whatsapp)
 6. [Héberger le site web](#6-héberger-le-site-web)
@@ -32,13 +32,16 @@ Ce que tu offres :
 ```
 infomadalive/
 ├── bot-telegram/          ← Bot Telegram principal
-│   ├── bot.js             ← Code du bot
-│   ├── data.js            ← Base de données JSON
+│   ├── api/
+│   │   └── webhook.js     ← Code du bot (webhook Vercel)
+│   ├── bot.js             ← Code du bot (version locale)
+│   ├── data.js            ← Base de données locale
 │   ├── package.json       ← Dépendances
+│   ├── vercel.json        ← Config Vercel
 │   ├── .env.example       ← Template variables
-│   ├── Procfile            ← Config déploiement
-│   ├── railway.json        ← Config Railway (backup)
-│   └── GUIDE.md            ← Guide bot Telegram
+│   ├── setup-webhook.js   ← Script config webhook (1 fois)
+│   ├── setup-jsonbin.js   ← Script config base de données (1 fois)
+│   └── GUIDE.md           ← Guide bot Telegram
 │
 ├── bot-whatsapp/           ← Bot WhatsApp
 │   ├── bot-whatsapp.js     ← Code du bot
@@ -46,8 +49,8 @@ infomadalive/
 │
 ├── branding/               ← Identité visuelle
 │   ├── identite.md         ← Nom, couleurs, slogan
-│   ├── page-facebook.md    ← Config page FB
-│   ├── posts-malagasy.md   ← Posts en malgache
+│   ├── page-facebook.md    ← Config page FB + posts
+│   ├── posts-malagasy.md   ← Posts en malgache + lexique
 │   └── templates-posts.md  ← Templates Canva
 │
 ├── monetisation/           ← Plan business
@@ -60,13 +63,19 @@ infomadalive/
 │   └── DEPLOY.md           ← Guide hébergement
 │
 ├── contenus-prets.md       ← Contenus prêts à publier
-├── Dockerfile              ← Config Docker (Koyeb)
-├── .dockerignore
 ├── package.json            ← Config racine
-├── railway.json            ← Config Railway
-├── Procfile
 └── GUIDE-COMPLET.md        ← CE FICHIER
 ```
+
+### Stack technique
+
+| Composant | Technologie | Coût |
+|-----------|-------------|------|
+| Bot Telegram | Node.js + Webhook | Gratuit |
+| Hébergement bot | Vercel | Gratuit (pour toujours) |
+| Base de données | JSONBin.io | Gratuit (10 000 req/mois) |
+| Site web | HTML/CSS | Gratuit (Vercel ou GitHub Pages) |
+| Bot WhatsApp | whatsapp-web.js | Gratuit (nécessite un PC) |
 
 ---
 
@@ -128,74 +137,130 @@ partager - 📢 Partager le bot
 ```bash
 cd bot-telegram
 cp .env.example .env
-# Ouvre .env et colle ton token
+# Ouvre .env et colle ton token + tes IDs
 npm install
 npm start
 ```
 
-Le bot démarre → teste sur Telegram avec `/start`.
+Le bot démarre en mode polling → teste sur Telegram avec `/start`.
 
 ---
 
-## 3. Déployer sur Koyeb (gratuit, 24/7)
+## 3. Déployer sur Vercel (100% gratuit, pour toujours)
 
-### Étape 1 : Créer un compte
+### Pourquoi Vercel ?
 
-1. Va sur **app.koyeb.com**
-2. Clique **"Sign up with GitHub"**
-3. Autorise avec ton compte GitHub
+| | Vercel | Railway | Koyeb |
+|--|--------|---------|-------|
+| Gratuit | ✅ Pour toujours | ❌ 5$/mois après essai | ❌ Limité |
+| Carte bancaire | Non requise | Requise | Requise |
+| Auto-deploy | ✅ | ✅ | ✅ |
+| Fiabilité | Excellente | Bonne | Bonne |
 
-### Étape 2 : Créer le service
+### Étape 1 : Créer la base de données JSONBin
 
-1. Clique **"Create Service"**
-2. Source : **GitHub**
-3. Repo : **julienogabriel/infomadalive**
-4. Branch : **main**
-5. Builder : **Docker** (détecté automatiquement)
+JSONBin.io = base de données JSON en ligne, gratuite.
 
-### Étape 3 : Configuration
+1. Va sur **jsonbin.io**
+2. Crée un compte **gratuit** (email ou Google)
+3. Une fois connecté, va dans **API Keys** (menu de gauche)
+4. Copie ta **Master Key** (ressemble à : `$2a$10$xxx...`)
+5. Sur ton PC, ouvre un terminal :
 
-1. Instance : **Free (nano)**
-2. Region : **Frankfurt** (proche Madagascar)
-3. Environment variables :
+```bash
+cd bot-telegram
+npm install
+node setup-jsonbin.js TA_MASTER_KEY
+```
 
-| Clé | Valeur |
-|-----|--------|
-| `TELEGRAM_BOT_TOKEN` | `7123456789:AAHx...` (ton token) |
-| `ADMIN_IDS` | (vide pour l'instant) |
+6. Le script affiche :
+```
+✅ Base de données créée !
+JSONBIN_ID = 66xxx...
+JSONBIN_KEY = $2a$10$xxx...
+```
 
-4. Health check : mettre sur **None** ou TCP
-5. Clique **"Deploy"**
+7. **NOTE CES 2 VALEURS** — tu en auras besoin dans Vercel
+
+### Étape 2 : Déployer sur Vercel
+
+1. Va sur **vercel.com**
+2. Clique **"Sign up"** → **"Continue with GitHub"**
+3. Autorise avec ton compte `julienogabriel`
+4. Clique **"Add New Project"**
+5. Tu vois ton repo `infomadalive` → clique **"Import"**
+6. **IMPORTANT** — Configure :
+   - **Root Directory** : clique "Edit" → tape `bot-telegram` → confirme
+   - **Framework Preset** : Other
+7. Ouvre **"Environment Variables"** et ajoute ces 4 variables :
+
+| Name (exactement) | Value |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | ton token BotFather (ex: `7123456789:AAHx...`) |
+| `ADMIN_IDS` | laisse vide pour l'instant |
+| `JSONBIN_ID` | l'ID du script setup-jsonbin (ex: `66xxx...`) |
+| `JSONBIN_KEY` | ta Master Key JSONBin (ex: `$2a$10$xxx...`) |
+
+8. Clique **"Deploy"**
+9. Attends 30-60 secondes → tu vois "Congratulations!"
+10. Vercel te donne une URL, par exemple : `https://infomadalive-xxx.vercel.app`
+11. **COPIE CETTE URL**
+
+### Étape 3 : Activer le webhook Telegram
+
+Le webhook dit à Telegram : "envoie tous les messages à mon URL Vercel".
+
+```bash
+node setup-webhook.js TON_TOKEN https://ton-url.vercel.app
+```
+
+Exemple concret :
+```bash
+node setup-webhook.js 7123456789:AAHx1234 https://infomadalive-abc.vercel.app
+```
+
+Tu dois voir : `✅ Webhook configuré avec succès !`
 
 ### Étape 4 : Trouver ton Admin ID
 
-1. Le bot est maintenant en ligne
-2. Va sur Telegram → parle à ton bot
+1. Ouvre Telegram → va sur ton bot
+2. Tape `/start` (tu dois recevoir le message de bienvenue !)
 3. Tape `/monid`
 4. Tu reçois un numéro (ex: `987654321`)
-5. Va sur Koyeb → ton service → Settings → Environment
-6. Modifie `ADMIN_IDS` = `987654321`
-7. Koyeb redéploie automatiquement
+5. Va sur **Vercel** → ton projet → **Settings** → **Environment Variables**
+6. Modifie `ADMIN_IDS` → mets ton numéro (ex: `987654321`)
+7. Va dans **Deployments** → clique les 3 points du dernier deploy → **"Redeploy"**
 
-### Étape 5 : Vérifier
+### Étape 5 : Tester tout
 
-Tape sur Telegram :
-- `/start` → message de bienvenue ✅
-- `/admin` → commandes admin ✅
-- `/addcoupure Test | Aujourd'hui | 2h` → ajouter test ✅
-- `/coupures` → voir le test ✅
+Sur Telegram, tape :
+```
+/start          → Message de bienvenue ✅
+/menu           → Toutes les commandes ✅
+/monid          → Ton Chat ID ✅
+/admin          → Commandes admin ✅
+/addcoupure Analakely | 1er Avril 2026 | 4h    → ✅
+/coupures       → Tu vois la coupure ✅
+/addbonplan Riz | 2000 Ar kapoaka | Isotry     → ✅
+/bonsplans      → Tu vois le bon plan ✅
+/addjob Vendeur | Shoprite | 034 00 000 00     → ✅
+/jobs           → Tu vois le job ✅
+/stats          → 1 abonné ✅
+/signaler       → Test crowdsourcing ✅
+INFO            → Résumé rapide ✅
+```
 
-**Ton bot tourne maintenant 24/7 gratuitement.**
+**C'est fait ! Ton bot tourne 24/7 gratuitement sur Vercel.**
 
 ### Mises à jour automatiques
 
-Chaque fois que tu push sur GitHub :
+Chaque fois que tu modifies le code et push :
 ```bash
 git add -A
-git commit -m "mise à jour"
+git commit -m "description du changement"
 git push origin main
 ```
-→ Koyeb redéploie automatiquement en 1-2 minutes.
+→ Vercel redéploie automatiquement en 30 secondes. Rien d'autre à faire.
 
 ---
 
@@ -261,17 +326,10 @@ On est là pour une seule raison : te donner les INFOS UTILES que tu cherches ch
 
 Ce que tu trouves ici :
 
-⚡ COUPURES JIRAMA
-→ On te prévient AVANT que ça coupe
-
-🔥 BONS PLANS & PRIX
-→ Où acheter moins cher à Tana
-
-💼 OFFRES D'EMPLOI
-→ Des vraies offres, vérifiées
-
-⚠️ ALERTES
-→ Tout ce qui est important à savoir
+⚡ COUPURES JIRAMA → On te prévient AVANT que ça coupe
+🔥 BONS PLANS & PRIX → Où acheter moins cher à Tana
+💼 OFFRES D'EMPLOI → Des vraies offres, vérifiées
+⚠️ ALERTES → Tout ce qui est important à savoir
 
 📌 COMMENT ÇA MARCHE ?
 1. Abonne-toi à cette page
@@ -287,88 +345,15 @@ C'est GRATUIT. C'est pour NOUS TOUS.
 
 ### Étape 6 : Premiers posts (Jour 1)
 
-**7h du matin :**
-```
-⚡ BONJOUR TANA !
-
-Rappel : pensez à charger vos téléphones et préparer de l'eau.
-Les coupures JIRAMA sont fréquentes en ce moment.
-
-Suivez cette page pour être prévenus EN AVANCE.
-🔔 Active les notifications → tu seras le premier informé.
-
-#JIRAMA #Antananarivo #InfoMadaLive
-```
-
-**10h :**
-```
-📊 SONDAGE — On veut savoir !
-
-Quel est ton PLUS GROS problème au quotidien ?
-
-👉 1 = Les coupures JIRAMA
-👉 2 = Les prix qui augmentent
-👉 3 = Trouver du travail
-👉 4 = Autre (dis-nous en commentaire !)
-
-Réponds en commentaire !
-
-#Madagascar #InfoMadaLive
-```
-
-**12h :**
-```
-🔥 BON PLAN DU JOUR
-
-Tu savais que le riz est moins cher au marché de [lieu] en ce moment ?
-
-💰 Environ [prix] Ar le kapoaka
-📍 [Lieu exact]
-⏰ Meilleur moment : tôt le matin
-
-Partage pour aider quelqu'un ! 👇
-
-#BonPlan #Riz #Madagascar #InfoMadaLive
-```
-
-**15h :**
-```
-💼 OFFRE D'EMPLOI
-
-[Entreprise] recrute : [Poste]
-
-📍 Lieu : [Ville/Quartier]
-💰 Salaire : [X] Ar
-📞 Contact : [Numéro/Email]
-📅 Date limite : [Date]
-
-Partage ! Ça peut changer la vie de quelqu'un.
-
-#Emploi #Recrutement #Madagascar #InfoMadaLive
-```
-
-**19h :**
-```
-📢 ON A BESOIN DE TOI !
-
-Info Mada Live, c'est une page PAR les Malgaches, POUR les Malgaches.
-
-🎯 Objectif : 1000 abonnés cette semaine
-
-1. Like cette page ✅
-2. Partage ce post ↗️
-3. Invite 3 amis 👥
-
-Ensemble, on s'informe mieux. Misaotra ! 🙏
-
-#InfoMadaLive #Madagascar #Communauté
-```
+Voir le fichier `branding/page-facebook.md` pour les 5 posts prêts à publier.
+Voir le fichier `branding/posts-malagasy.md` pour les versions en malgache.
+Voir le fichier `branding/templates-posts.md` pour les templates Canva.
 
 ### Groupes Facebook où partager
 
 - "Bon plan Antananarivo"
 - "Emploi Madagascar"
-- "Vide dressing Tana"
+- "Vide dressing Tana" (beaucoup de membres actifs)
 - "JIRAMA - coupures et infos"
 - Groupes de quartier (Analakely, Ivandry, 67ha...)
 - "Malgache entreprenant"
@@ -399,11 +384,10 @@ node bot-whatsapp.js
 4. Le bot est connecté !
 
 ### Configuration admin
-Ouvre `bot-whatsapp.js`, trouve la ligne :
-```javascript
-const ADMIN_NUMBER = process.env.ADMIN_WHATSAPP || '';
+Dans `.env` ou en variable d'environnement :
 ```
-Mets ton numéro au format `261XXXXXXXXX@c.us`
+ADMIN_WHATSAPP=261XXXXXXXXX@c.us
+```
 
 ### Commandes utilisateur (WhatsApp)
 
@@ -427,35 +411,32 @@ Mets ton numéro au format `261XXXXXXXXX@c.us`
 
 ### Important
 - Le bot WhatsApp doit tourner sur un PC allumé en permanence
-- Ou sur un VPS (serveur en ligne)
-- Commence par le bot Telegram (plus simple), ajoute WhatsApp plus tard
+- Commence par le bot Telegram (plus simple, hébergé sur Vercel)
+- Ajoute WhatsApp plus tard quand tu as de la traction
 
 ---
 
-## 6. Héberger le site web (GitHub Pages, gratuit)
+## 6. Héberger le site web
 
-1. Va sur ton repo GitHub : github.com/julienogabriel/infomadalive
-2. Settings → **Pages**
-3. Source : **Deploy from a branch**
-4. Branch : **main** → dossier **/site-web** (ou **/ root**)
-5. Save
+### Option 1 : Vercel (recommandé)
 
-**Problème** : GitHub Pages sert depuis la racine. Solution simple :
+Tu peux héberger le site sur Vercel en créant un 2ème projet :
+1. Vercel → "Add New Project" → même repo
+2. Root Directory → `site-web`
+3. Deploy
 
-Option A : Copier `site-web/index.html` à la racine (mais ça écrase)
+### Option 2 : GitHub Pages (gratuit aussi)
 
-Option B : Créer un repo séparé juste pour le site :
 1. Crée un nouveau repo : `julienogabriel.github.io`
 2. Upload `index.html` dedans
 3. Ton site sera sur `https://julienogabriel.github.io`
 
-### Personnaliser le site
+### Personnaliser
 
 Ouvre `site-web/index.html` et remplace :
 - `261XXXXXXXXX` → ton vrai numéro WhatsApp
 - `InfoMadaLiveBot` → le vrai username de ton bot
 - `infomadalive@gmail.com` → ton vrai email
-- Les stats (1000+) → tes vrais chiffres
 
 ---
 
@@ -475,7 +456,7 @@ Ouvre `site-web/index.html` et remplace :
 ### Semaine 3 : Viralité (objectif 1000 abonnés)
 - "Tague 3 amis qui ont besoin de cette page"
 - Concours : "Partage et gagne [lot]"
-- Lancer le bot Telegram
+- Promouvoir le bot Telegram
 
 ### Semaine 4 : Monétisation test (objectif 2000 abonnés)
 - Premier post sponsorisé (gratuit, pour tester)
@@ -506,13 +487,9 @@ Ouvre `site-web/index.html` et remplace :
 ## 8. Monétisation
 
 ### Phase 1 (0-1000 abonnés) : 0 Ar
-- Construire l'audience
-- 3 posts/jour
-- Objectif : engagement
+Construire l'audience. 3 posts/jour.
 
 ### Phase 2 (1000-5000 abonnés) : 50 000 - 200 000 Ar/mois
-
-**Posts sponsorisés :**
 
 | Service | Prix |
 |---------|------|
@@ -530,10 +507,9 @@ On publie les bons plans, les gens adorent.
 Je peux publier ton offre pour 5 000 Ar.
 Tu veux essayer une fois gratuitement ?"
 ```
+**Astuce :** Offre le PREMIER post gratuit. Montre les stats. Le client revient et paie.
 
 ### Phase 3 (5000-20000 abonnés) : 200 000 - 1 000 000 Ar/mois
-
-**Tarifs augmentés :**
 
 | Service | Prix |
 |---------|------|
@@ -542,26 +518,13 @@ Tu veux essayer une fois gratuitement ?"
 | Pack semaine | 50 000 Ar |
 | Pack mois | 150 000 Ar |
 
-**Abonnement VIP :**
-
-| Offre | Prix |
-|-------|------|
-| VIP Hebdo | 2 000 Ar/semaine |
-| VIP Mensuel | 5 000 Ar/mois |
-| VIP Pro | 15 000 Ar/mois |
-
-**Offres d'emploi payantes :**
-
-| Service | Prix |
-|---------|------|
-| 1 offre simple | 10 000 Ar |
-| Offre + boost | 25 000 Ar |
-| Pack 5 offres | 40 000 Ar |
+Plus : Abonnements VIP, offres d'emploi payantes, commissions.
+Voir `monetisation/strategie.md` pour tous les détails.
 
 ### Phase 4 (20000+ abonnés) : 1 000 000 - 5 000 000+ Ar/mois
 
 - Application mobile (Angular + Spring Boot + PostgreSQL)
-- Partenariats grandes entreprises (Orange, Telma, Shoprite...)
+- Partenariats entreprises (Orange, Telma, Shoprite...)
 - Data & insights
 - Franchise dans d'autres villes
 
@@ -572,36 +535,10 @@ Tu veux essayer une fois gratuitement ?"
 | MVola (Telma) | Le plus utilisé |
 | Orange Money | Très répandu |
 | Airtel Money | 3ème option |
-| Virement | Pour entreprises |
 | Espèces | Petits commerces |
 
-### Template de facture
-
-```
-═══════════════════════════════════════
-           INFO MADA LIVE
-═══════════════════════════════════════
-
-FACTURE N° : IML-2026-001
-Date : [DATE]
-
-DE : Info Mada Live
-MVola : [Numéro]
-
-À : [Client]
-
-───────────────────────────────────────
-| Service              | Prix        |
-|----------------------|-------------|
-| Post sponsorisé      | 10 000 Ar   |
-| Story Facebook       | 5 000 Ar    |
-───────────────────────────────────────
-TOTAL :                  15 000 Ar
-───────────────────────────────────────
-
-Paiement : MVola [numéro] / Orange Money [numéro]
-═══════════════════════════════════════
-```
+Voir `monetisation/facture-template.md` pour le modèle de facture.
+Voir `monetisation/suivi-clients.md` pour le pipeline de démarchage.
 
 ---
 
@@ -618,7 +555,7 @@ Paiement : MVola [numéro] / Orange Money [numéro]
 | `/jobs` | Offres d'emploi |
 | `/signaler` | Signaler une info (crowdsourcing) |
 | `/stats` | Nombre d'abonnés |
-| `/partager` | Lien de partage |
+| `/partager` | Partager le bot |
 | `/monid` | Voir son Chat ID |
 | `INFO` | Résumé rapide (mot-clé) |
 
@@ -633,63 +570,76 @@ Paiement : MVola [numéro] / Orange Money [numéro]
 | `/broadcast` | `/broadcast Bonne journée à tous !` |
 | `/listeabonnes` | Voir les 20 derniers abonnés |
 
-### Planificateur automatique
+### Crowdsourcing (utilisateurs envoient des infos)
 
-Le bot envoie automatiquement à tous les abonnés :
-- **7h** (heure Mada) → Coupures du jour
-- **12h** → Bons plans du midi
-- **19h** → Offres d'emploi du soir
-
-Le contenu est tiré de ce que tu as ajouté via /addcoupure, /addbonplan, /addjob.
-
-### Crowdsourcing
-
-Les utilisateurs peuvent signaler des infos via `/signaler` :
-1. Ils choisissent le type (coupure, bon plan, job, alerte)
-2. Ils indiquent la zone
-3. Ils donnent les détails
-4. L'info est envoyée aux admins
-5. L'admin vérifie et publie si c'est fiable
+Via `/signaler` puis `/signal` :
+```
+/signal coupure | Analakely | Demain 8h | 4h
+/signal bonplan | Riz pas cher | 2000 Ar | Marché Isotry
+/signal job | Vendeur | Shoprite | 034 00 000 00
+```
+L'info est envoyée aux admins pour vérification avant publication.
 
 ---
 
 ## 10. FAQ & Dépannage
 
 ### Le bot ne répond pas
-1. Vérifie que le service tourne sur Koyeb (status vert)
-2. Vérifie le token dans les variables d'environnement
-3. Va dans Koyeb → Logs pour voir les erreurs
+1. Vérifie que le webhook est configuré :
+   ```bash
+   node setup-webhook.js TON_TOKEN TON_URL_VERCEL
+   ```
+2. Vérifie les variables sur Vercel (Settings → Environment Variables)
+3. Va dans Vercel → Logs pour voir les erreurs
+
+### Le bot répond en double
+Le webhook est peut-être configuré 2 fois. Lance :
+```bash
+node setup-webhook.js TON_TOKEN TON_URL_VERCEL
+```
+Le script supprime l'ancien webhook avant d'en créer un nouveau.
 
 ### Je veux ajouter un 2ème admin
-Dans Koyeb, modifie la variable :
+Sur Vercel, modifie la variable `ADMIN_IDS` :
 ```
-ADMIN_IDS=123456789,987654321
+987654321,123456789
 ```
-(sépare les IDs par des virgules)
+(sépare les IDs par des virgules, puis Redeploy)
 
-### Le bot perd les données au redéploiement
-Normal : le fichier `db.json` est en mémoire. Pour garder les données :
-- Phase 1 : c'est ok, tu as peu de données
-- Phase 3 : migre vers PostgreSQL (gratuit sur Supabase ou Neon)
+### Les données disparaissent
+Vérifie que `JSONBIN_ID` et `JSONBIN_KEY` sont corrects dans Vercel.
+Va sur jsonbin.io → tes bins → vérifie que le bin existe.
 
 ### Je veux modifier le bot
-1. Modifie les fichiers en local
+1. Modifie `bot-telegram/api/webhook.js`
 2. Push sur GitHub :
 ```bash
 git add -A
 git commit -m "description du changement"
 git push origin main
 ```
-3. Koyeb redéploie automatiquement
+3. Vercel redéploie automatiquement en 30 secondes
 
 ### Comment passer à PostgreSQL plus tard ?
-Quand tu auras beaucoup de données :
+Quand tu dépasses les limites de JSONBin (10 000 req/mois) :
 1. Crée une base gratuite sur **neon.tech** ou **supabase.com**
-2. Remplace `data.js` par des requêtes PostgreSQL
-3. Les données persistent même après redéploiement
+2. Remplace les fonctions loadDB/saveDB dans `api/webhook.js`
+3. Les données persistent indéfiniment
+
+### Limites Vercel gratuit
+- 100 Go de bande passante/mois (largement suffisant)
+- Fonctions serverless : 100 000 exécutions/mois (largement suffisant)
+- Pas de limite de temps
+- Pas de carte bancaire requise
+
+### Limites JSONBin gratuit
+- 10 000 requêtes/mois
+- Suffisant pour environ 300 utilisateurs actifs/jour
+- Si tu dépasses → migre vers Supabase (gratuit aussi, 500 Mo)
 
 ### Liens utiles
 - Repo GitHub : github.com/julienogabriel/infomadalive
-- Koyeb dashboard : app.koyeb.com
+- Vercel : vercel.com
+- JSONBin : jsonbin.io
 - BotFather : t.me/BotFather
 - Canva : canva.com

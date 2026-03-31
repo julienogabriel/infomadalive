@@ -2,10 +2,12 @@
   "name": "info-mada-live-bot",
   "version": "1.0.0",
   "description": "Bot Telegram - Infos utiles & Bons plans Madagascar",
-  "main": "bot.js",
+  "main": "api/webhook.js",
   "scripts": {
     "start": "node bot.js",
-    "dev": "node --watch bot.js"
+    "dev": "node --watch bot.js",
+    "setup:db": "node setup-jsonbin.js",
+    "setup:webhook": "node setup-webhook.js"
   },
   "dependencies": {
     "node-telegram-bot-api": "^0.66.0"

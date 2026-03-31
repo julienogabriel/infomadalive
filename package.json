@@ -4,8 +4,7 @@
   "description": "Info Mada Live — Infos utiles Madagascar",
   "scripts": {
     "start": "node bot-telegram/bot.js",
-    "install:telegram": "cd bot-telegram && npm install",
-    "install:whatsapp": "cd bot-whatsapp && npm install",
-    "postinstall": "cd bot-telegram && npm install"
+    "setup:db": "cd bot-telegram && node setup-jsonbin.js",
+    "setup:webhook": "cd bot-telegram && node setup-webhook.js"
   }
 }

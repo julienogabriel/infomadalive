@@ -3,4 +3,4 @@ node_modules/
 db.json
 .wwebjs_auth/
 .wwebjs_cache/
-infomadalive
+.vercel/
