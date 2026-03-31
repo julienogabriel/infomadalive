@@ -1,0 +1,11 @@
+{
+  "name": "infomadalive",
+  "version": "1.0.0",
+  "description": "Info Mada Live — Infos utiles Madagascar",
+  "scripts": {
+    "start": "node bot-telegram/bot.js",
+    "install:telegram": "cd bot-telegram && npm install",
+    "install:whatsapp": "cd bot-whatsapp && npm install",
+    "postinstall": "cd bot-telegram && npm install"
+  }
+}
