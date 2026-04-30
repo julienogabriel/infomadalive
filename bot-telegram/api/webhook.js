@@ -48,7 +48,8 @@ const DEFAULT_DB = {
   clients: [],       // { id, nom, contact, service, prix, dateAjout, posts: [] }
   sponsors: [],      // { id, texte, client, dateCreation, diffuse }
   paiements: [],     // { id, chatId, nom, montant, methode, date, statut }
-  revenus: { total: 0, mois: {} }
+  revenus: { total: 0, mois: {} },
+  parrainages: []    // { parrainId, filleulId, date, recompense }
 };
 
 async function loadDB() {
@@ -93,47 +94,114 @@ function getMoisKey() {
 //  COMMANDES UTILISATEUR
 // ============================================
 
-async function handleStart(chatId, nom) {
+async function handleStart(chatId, nom, startPayload) {
   const db = await loadDB();
-  if (!db.abonnes.find(a => a.chatId === chatId)) {
+  const isNew = !db.abonnes.find(a => a.chatId === chatId);
+
+  if (isNew) {
     db.abonnes.push({ chatId, nom, date: new Date().toISOString() });
+
+    // Parrainage : si l'utilisateur vient via un lien de parrainage
+    if (startPayload && startPayload.startsWith('ref_')) {
+      const parrainId = parseInt(startPayload.substring(4));
+      if (parrainId && parrainId !== chatId) {
+        if (!db.parrainages) db.parrainages = [];
+        db.parrainages.push({
+          parrainId,
+          filleulId: chatId,
+          filleulNom: nom,
+          date: new Date().toISOString(),
+          recompense: false
+        });
+
+        // Notifier le parrain
+        const nbFilleuls = db.parrainages.filter(p => p.parrainId === parrainId).length;
+        try {
+          await sendMessage(parrainId,
+            `*${nom} a rejoint grace a toi !*\n\n` +
+            `Tu as maintenant *${nbFilleuls} filleul(s)*.\n` +
+            (nbFilleuls >= 5 && !db.parrainages.find(p => p.parrainId === parrainId && p.recompense)
+              ? `\n*BRAVO ! 5 filleuls = 1 semaine VIP GRATUITE !*\nOn t'active ca tout de suite...`
+              : `Encore ${Math.max(0, 5 - nbFilleuls)} pour gagner 1 semaine VIP gratuite !`)
+          );
+
+          // Recompense auto a 5 filleuls
+          if (nbFilleuls >= 5) {
+            const dejaRecompense = (db.vip || []).find(v =>
+              v.chatId === parrainId && v.source === 'parrainage'
+            );
+            if (!dejaRecompense) {
+              const expiration = new Date();
+              expiration.setDate(expiration.getDate() + 7);
+              const existant = (db.vip || []).findIndex(v => v.chatId === parrainId);
+              const vipData = {
+                chatId: parrainId,
+                plan: 'Hebdo (Parrainage)',
+                expiration: expiration.toISOString(),
+                dateActivation: new Date().toISOString(),
+                source: 'parrainage'
+              };
+              if (existant >= 0) {
+                db.vip[existant] = vipData;
+              } else {
+                db.vip.push(vipData);
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
     await saveDB(db);
+
+    // Notifier les admins du nouvel abonne
+    for (const adminId of ADMIN_IDS) {
+      try {
+        await sendMessage(adminId,
+          `*Nouvel abonne !*\n${nom} (ID: \`${chatId}\`)\nTotal : *${db.abonnes.length}*`
+        );
+      } catch {}
+    }
   }
 
   await sendMessage(chatId,
-    `🇲🇬 *Bienvenue sur Info Mada Live, ${nom} !*\n\n` +
-    `Ici tu reçois chaque jour :\n` +
-    `⚡ Coupures JIRAMA\n` +
-    `🔥 Bons plans & prix\n` +
-    `💼 Offres d'emploi\n\n` +
+    `*Bienvenue sur Info Mada Live, ${nom} !*\n\n` +
+    `Ici tu recois chaque jour :\n` +
+    `Coupures JIRAMA\n` +
+    `Bons plans & prix\n` +
+    `Offres d'emploi\n\n` +
     `*Tape une commande :*\n\n` +
     `/coupures - Alertes coupures JIRAMA\n` +
     `/bonsplans - Bons plans du jour\n` +
     `/jobs - Offres d'emploi\n` +
     `/vip - Contenu exclusif VIP\n` +
-    `/signaler - Signaler une info\n` +
+    `/parrainer - Invite tes amis, gagne VIP gratuit\n` +
     `/menu - Toutes les options\n\n` +
-    `📢 Partage ce bot avec tes amis !`
+    `Partage ce bot avec tes amis !`
   );
 }
 
 async function handleMenu(chatId) {
   const db = await loadDB();
-  const vipStatus = isVIP(db, chatId) ? '⭐ VIP actif' : '🔓 Gratuit';
+  const vipStatus = isVIP(db, chatId) ? 'VIP actif' : 'Gratuit';
+  const nbFilleuls = (db.parrainages || []).filter(p => p.parrainId === chatId).length;
 
   await sendMessage(chatId,
-    `📋 *MENU - Info Mada Live*\n` +
-    `Ton statut : ${vipStatus}\n\n` +
-    `⚡ /coupures - Coupures JIRAMA\n` +
-    `🔥 /bonsplans - Bons plans\n` +
-    `💼 /jobs - Offres d'emploi\n` +
-    `📝 /signaler - Signaler une info\n` +
-    `📊 /stats - Nombre d'abonnés\n` +
-    `📢 /partager - Partager le bot\n\n` +
-    `⭐ *VIP :*\n` +
+    `*MENU - Info Mada Live*\n` +
+    `Statut : ${vipStatus}\n\n` +
+    `/coupures - Coupures JIRAMA\n` +
+    `/bonsplans - Bons plans\n` +
+    `/jobs - Offres d'emploi\n` +
+    `/signaler - Signaler une info\n` +
+    `/stats - Nombre d'abonnes\n` +
+    `/partager - Partager le bot\n\n` +
+    `*VIP :*\n` +
     `/vip - Devenir VIP (bons plans exclusifs)\n` +
     `/payer - Comment payer\n\n` +
-    `💡 _Envoie "INFO" pour un résumé rapide_`
+    `*Parrainage (${nbFilleuls} filleuls) :*\n` +
+    `/parrainer - Ton lien + gagne VIP gratuit\n` +
+    `/mesfilleuls - Voir tes filleuls\n\n` +
+    `_Envoie "INFO" pour un resume rapide_`
   );
 }
 
@@ -786,24 +854,27 @@ async function handleHistoriqueSp(chatId) {
 async function handleAdmin(chatId) {
   if (!isAdmin(chatId)) return;
   await sendMessage(chatId,
-    `🔐 *ADMIN — Info Mada Live*\n\n` +
-    `📊 *Dashboard :*\n` +
+    `*ADMIN — Info Mada Live*\n\n` +
+    `*Dashboard :*\n` +
     `/dashboard - Vue d'ensemble\n` +
-    `/paiementsattente - Paiements à valider\n` +
+    `/paiementsattente - Paiements a valider\n` +
     `/revenudetail - Revenus par mois\n\n` +
-    `🏢 *Clients :*\n` +
+    `*Clients :*\n` +
     `/clients - Liste des clients\n` +
     `/addclient Nom | Contact | Service | Prix\n` +
-    `/deleteclient Numéro\n\n` +
-    `📣 *Sponsorisé :*\n` +
-    `/sponsor - Posts sponsorisés\n` +
+    `/deleteclient Numero\n\n` +
+    `*Sponsorise & Promo :*\n` +
+    `/sponsor - Posts sponsorises\n` +
     `/addsponsor Client | Texte\n` +
-    `/diffusersponsor - Envoyer à tous\n\n` +
-    `⭐ *VIP :*\n` +
+    `/diffusersponsor - Envoyer a tous\n` +
+    `/promo Texte - Envoyer une promo flash\n\n` +
+    `*VIP :*\n` +
     `/validerpaiement ChatID | plan\n` +
     `/listevip - Liste des VIP\n\n` +
-    `📝 *Contenu :*\n` +
-    `/addcoupure Zone | Date | Durée\n` +
+    `*Parrainage :*\n` +
+    `/statsparrainage - Stats des parrainages\n\n` +
+    `*Contenu :*\n` +
+    `/addcoupure Zone | Date | Duree\n` +
     `/addbonplan Titre | Description | Lieu\n` +
     `/addjob Poste | Entreprise | Contact\n` +
     `/broadcast Message\n` +
@@ -902,12 +973,107 @@ async function handleListeAbonnes(chatId) {
 }
 
 // ============================================
+//  PARRAINAGE
+// ============================================
+
+async function handleParrainer(chatId) {
+  const db = await loadDB();
+  const nbFilleuls = (db.parrainages || []).filter(p => p.parrainId === chatId).length;
+
+  await sendMessage(chatId,
+    `*PARRAINAGE — Info Mada Live*\n\n` +
+    `Invite tes amis et gagne du *VIP GRATUIT* !\n\n` +
+    `*Ton lien personnel :*\n` +
+    `https://t.me/InfoMadaLiveBot?start=ref\\_${chatId}\n\n` +
+    `*Tes filleuls :* ${nbFilleuls}\n` +
+    `*Objectif :* 5 filleuls = *1 semaine VIP gratuite*\n\n` +
+    `${nbFilleuls < 5 ? `Encore *${5 - nbFilleuls}* pour gagner !` : `BRAVO tu as atteint l'objectif !`}\n\n` +
+    `_Copie le lien et envoie-le a tes amis !_`
+  );
+}
+
+async function handleMesFilleuls(chatId) {
+  const db = await loadDB();
+  const filleuls = (db.parrainages || []).filter(p => p.parrainId === chatId);
+
+  if (filleuls.length === 0) {
+    await sendMessage(chatId,
+      `Tu n'as pas encore de filleuls.\n\nTape /parrainer pour obtenir ton lien !`
+    );
+    return;
+  }
+
+  let texte = `*TES FILLEULS (${filleuls.length})*\n\n`;
+  filleuls.forEach((f, i) => {
+    texte += `${i + 1}. ${f.filleulNom} — ${f.date.split('T')[0]}\n`;
+  });
+  texte += `\n${filleuls.length >= 5 ? 'VIP gratuit gagne !' : `Encore ${5 - filleuls.length} pour le VIP gratuit`}`;
+
+  await sendMessage(chatId, texte);
+}
+
+// ============================================
+//  ADMIN — PROMO FLASH
+// ============================================
+
+async function handlePromo(chatId, args) {
+  if (!isAdmin(chatId)) return;
+
+  const db = await loadDB();
+  const message =
+    `*PROMO FLASH — Info Mada Live*\n\n` +
+    `${args}\n\n` +
+    `/vip pour en profiter MAINTENANT\n` +
+    `_Offre limitee !_`;
+
+  let envoyes = 0;
+  for (const ab of db.abonnes) {
+    try {
+      await sendMessage(ab.chatId, message);
+      envoyes++;
+    } catch {}
+  }
+  await sendMessage(chatId, `Promo envoyee a ${envoyes}/${db.abonnes.length} abonnes`);
+}
+
+async function handleStatsParrainage(chatId) {
+  if (!isAdmin(chatId)) return;
+
+  const db = await loadDB();
+  const parrainages = db.parrainages || [];
+
+  if (parrainages.length === 0) {
+    await sendMessage(chatId, `Aucun parrainage enregistre.`);
+    return;
+  }
+
+  const compteur = {};
+  parrainages.forEach(p => {
+    compteur[p.parrainId] = (compteur[p.parrainId] || 0) + 1;
+  });
+
+  const top = Object.entries(compteur)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  let texte = `*STATS PARRAINAGE*\n\n`;
+  texte += `Total parrainages : ${parrainages.length}\n\n`;
+  texte += `*Top parrains :*\n`;
+  top.forEach(([id, count], i) => {
+    const parrain = db.abonnes.find(a => a.chatId === parseInt(id));
+    texte += `${i + 1}. ${parrain ? parrain.nom : id} — ${count} filleul(s)\n`;
+  });
+
+  await sendMessage(chatId, texte);
+}
+
+// ============================================
 //  WEBHOOK HANDLER (point d'entrée Vercel)
 // ============================================
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
-    res.status(200).send('Info Mada Live Bot is running! v2.0 — VIP + Sponsors + Dashboard');
+    res.status(200).send('Info Mada Live Bot v3.0 — VIP + Sponsors + Parrainage + Cron');
     return;
   }
 
@@ -924,8 +1090,9 @@ module.exports = async (req, res) => {
 
     // --- Routing des commandes ---
 
-    // Utilisateur
-    if (text === '/start') await handleStart(chatId, nom);
+    // Utilisateur — /start avec payload de parrainage
+    if (text === '/start') await handleStart(chatId, nom, null);
+    else if (text.startsWith('/start ')) await handleStart(chatId, nom, text.substring(7));
     else if (text === '/menu') await handleMenu(chatId);
     else if (text === '/coupures') await handleCoupures(chatId);
     else if (text === '/bonsplans') await handleBonsPlans(chatId);
@@ -935,6 +1102,10 @@ module.exports = async (req, res) => {
     else if (text === '/monid') await handleMonId(chatId);
     else if (text === '/signaler') await handleSignaler(chatId);
     else if (text.startsWith('/signal ')) await handleSignal(chatId, nom, text.substring(8));
+
+    // Parrainage
+    else if (text === '/parrainer') await handleParrainer(chatId);
+    else if (text === '/mesfilleuls') await handleMesFilleuls(chatId);
 
     // VIP & Paiement
     else if (text === '/vip') await handleVip(chatId);
@@ -949,17 +1120,19 @@ module.exports = async (req, res) => {
     else if (text === '/revenudetail') await handleRevenuDetail(chatId);
     else if (text.startsWith('/validerpaiement ')) await handleValiderPaiement(chatId, text.substring(17));
     else if (text === '/listevip') await handleListeVip(chatId);
+    else if (text === '/statsparrainage') await handleStatsParrainage(chatId);
 
     // Admin — Clients
     else if (text === '/clients') await handleClients(chatId);
     else if (text.startsWith('/addclient ')) await handleAddClient(chatId, text.substring(11));
     else if (text.startsWith('/deleteclient ')) await handleDeleteClient(chatId, text.substring(14));
 
-    // Admin — Sponsors
+    // Admin — Sponsors & Promo
     else if (text === '/sponsor') await handleSponsor(chatId);
     else if (text.startsWith('/addsponsor ')) await handleAddSponsor(chatId, text.substring(12));
     else if (text === '/diffusersponsor') await handleDiffuserSponsor(chatId);
     else if (text === '/historiquesp') await handleHistoriqueSp(chatId);
+    else if (text.startsWith('/promo ')) await handlePromo(chatId, text.substring(7));
 
     // Admin — Contenu
     else if (text.startsWith('/addcoupure ')) await handleAddCoupure(chatId, text.substring(12));
